@@ -53,10 +53,10 @@ def validDBMLFile(s):
     Returns:
     bool: True if s ends with '.dbml', else False.
     """
-    if s.endswith('.dbml'):
-        return True
+    if isinstance(s, Path):
+        return s.suffix == '.dbml'
     else:
-        return False
+        return s.endswith('.dbml')
 
 def processFile(target, emulationMode, tableExists=True, indexExists=True, idxNameFunc=uuid.uuid4, join=True):
     """
