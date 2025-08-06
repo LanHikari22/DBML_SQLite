@@ -16,25 +16,34 @@ class MockItem:
     def __init__(self, name):
         self.name = name
 class MockColumn:
-    def __init__(self, name, Type, pk, not_null, unique, default):
+    def __init__(self, name, Type, pk, not_null, unique, default, table, autoinc=False):
         self.name = name
         self.type = Type
         self.pk = pk
         self.not_null = not_null
         self.unique = unique
         self.default = default
+        self.table = table
+        self.autoinc = autoinc
 class MockRef:
-    def __init__(self, col, ref_table, ref_col, on_update, on_delete):
-        self.col = col
-        self.ref_table = ref_table
-        self.ref_col = ref_col
+    def __init__(self, database, type, col1, col2, name, comment, on_update, on_delete, _inline):
+        self.database = database
+        self.type = type
+        self.col1 = col1
+        self.col2 = col2
+        self.name = name
+        self.comment = comment
         self.on_update = on_update
         self.on_delete = on_delete
+        self._inline = _inline
 class MockTable:
     def __init__(self, name, columns, refs):
         self.name = name
         self.columns = columns
         self.refs = refs
+
+    def get_refs(self):
+        return self.refs
 class MockIndex:
     def __init__(self, name, unique, subjects, table):
         self.name = name
@@ -79,15 +88,15 @@ def test_coercion():
 
 def test_process_column():
     # name, Type, pk, not_null, unique, default
-    c1 = MockColumn("c1", 1, None, None, None, None)
-    c2 = MockColumn("c2", 'INTEGER', True, False, False, None)
-    c3 = MockColumn("c3", 'REAL', False, True, True, None)
-    c4 = MockColumn('c4', 'TEXT', False, False, False, 'howdy')
+    c1 = MockColumn("c1", 1, None, None, None, None, None)
+    c2 = MockColumn("c2", 'INTEGER', True, False, False, None, None)
+    c3 = MockColumn("c3", 'REAL', False, True, True, None, None)
+    c4 = MockColumn('c4', 'TEXT', False, False, False, 'howdy', None)
     i1 = MockItem('i1')
     i2 = MockItem('i2')
     e1 = MockEnum('e1', [i1, i2])
-    c5 = MockColumn('c5', e1, False, True, False, None)
-    c6 = MockColumn('c6', 'REAL', False, True, False, 12.345)
+    c5 = MockColumn('c5', e1, False, True, False, None, None)
+    c6 = MockColumn('c6', 'REAL', False, True, False, 12.345, None)
     with pytest.raises(TypeError):
         processColumn(c1, 'full')
     assert processColumn(c2, 'full') == '  c2 INTEGER PRIMARY KEY'
@@ -98,10 +107,16 @@ def test_process_column():
     assert processColumn(c6, 'full') == '  c6 REAL NOT NULL DEFAULT 12.345'
 
 def test_process_ref():
-    fc = MockColumn('foreign_key', None, None, None, None, None)
+    fc = MockColumn('foreign_key', None, None, None, None, None, None)
     t = MockTable('foreign_table', [fc], [])
-    lc = MockColumn('local_key', None, None, None, None, None)
-    r = MockRef(lc, t, fc, 'NO ACTION', 'NO ACTION')
+    lc = MockColumn('local_key', None, None, None, None, None, None)
+    fc.table = t
+
+    # def __init__(self, database, type, col1, col2, name, comment, on_update, on_delete, _inline):
+    # r = MockRef(lc, t, fc, 'NO ACTION', 'NO ACTION')
+
+    r = MockRef(None, None, [lc], [fc], None, None, 'NO ACTION', 'NO ACTION', None)
+
     o = processRef(r)
     assert o == '  FOREIGN KEY(local_key) REFERENCES foreign_table(foreign_key) ON UPDATE NO ACTION ON DELETE NO ACTION'
 
@@ -111,18 +126,27 @@ processTable(table, emulationMode, tableExists=True, join=True)
     1 ) multiple refs
     2 ) joined output
     """
-    lc1 = MockColumn('l1', 'INTEGER', None, None, None, None)
-    lc2 = MockColumn('l2', 'INTEGER', None, None, None, None)
-    fc1 = MockColumn('f1', 'INTEGER', None, None, None, None)
-    fc2 = MockColumn('f2', 'INTEGER', None, None, None, None)
+    lc1 = MockColumn('l1', 'INTEGER', None, None, None, None, None)
+    lc2 = MockColumn('l2', 'INTEGER', None, None, None, None, None)
+    fc1 = MockColumn('f1', 'INTEGER', None, None, None, None, None)
+    fc2 = MockColumn('f2', 'INTEGER', None, None, None, None, None)
     fortab = MockTable('ft', [fc1, fc2], [])
-    r1 = MockRef(lc1, fortab, fc1, 'NO ACTION', 'NO ACTION')
-    r2 = MockRef(lc2, fortab, fc2, 'NO ACTION', 'NO ACTION')
+
+    fc1.table = fortab
+    fc2.table = fortab
+
+    # def __init__(self, database, type, col1, col2, name, comment, on_update, on_delete, _inline):
+    # r1 = MockRef(lc1, fortab, fc1, 'NO ACTION', 'NO ACTION')
+    # r2 = MockRef(lc2, fortab, fc2, 'NO ACTION', 'NO ACTION')
+
+    r1 = MockRef(None, None, [lc1], [fc1], None, None, 'NO ACTION', 'NO ACTION', None)
+    r2 = MockRef(None, None, [lc2], [fc2], None, None, 'NO ACTION', 'NO ACTION', None)
+
     loctab = MockTable('lt', [lc1, lc2], [r1, r2])
     o = processTable(loctab, 'full', False, True)
     assert o == "CREATE TABLE lt (\n  l1 INTEGER,\n  l2 INTEGER,\n  FOREIGN KEY(l1) REFERENCES ft(f1) ON UPDATE NO ACTION ON DELETE NO ACTION,\n  FOREIGN KEY(l2) REFERENCES ft(f2) ON UPDATE NO ACTION ON DELETE NO ACTION\n);\n"
 
-def test_process_enum():
+
     items = []
     items.append(MockItem('Joe'))
     items.append(MockItem('Bob'))
@@ -138,8 +162,8 @@ def test_process_file():
 
 def test_process_index():
     mytab = MockTable('mytab', [], [])
-    col1 = MockColumn('col1', None, None, None, None, None)
-    col2 = MockColumn('col2', None, None, None, None, None)
+    col1 = MockColumn('col1', None, None, None, None, None, None)
+    col2 = MockColumn('col2', None, None, None, None, None, None)
     idx = MockIndex('myidx', False, [col1, col2], mytab)
     o = processIndex(mytab, idx, MockNameFunc, False, True)
     assert o == "CREATE INDEX myidx ON mytab (col1, col2);\n" 
