@@ -15,6 +15,18 @@ This is a simple package built on top of [the PyDBML package by Vanderhoof](http
 
 You'll need Python 3.7 or higher.
 
+For this fork,
+
+You can add the following to `requirements.txt`:
+
+```
+dbml-sqlite @ git+https://github.com/LanHikari22/DBML_SQLite@v0.3.4
+```
+
+This requires that `git` is installed.
+
+Otherwise,
+
 ```
 pip install dbml_sqlite
 ```
