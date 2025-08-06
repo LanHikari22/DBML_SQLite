@@ -158,7 +158,7 @@ processTable(table, emulationMode, tableExists=True, join=True)
 def test_process_file():
     p = Path('./tests/abc.dbml')
     o = processFile(p, 'full', True, True, MockNameFunc)
-    assert o == 'CREATE TABLE IF NOT EXISTS mytab (\n  name TEXT,\n  phone INTEGER\n);\nCREATE INDEX IF NOT EXISTS _mockname ON mytab (name, phone);\n'
+    assert o == 'CREATE TABLE IF NOT EXISTS mytab (\n  name TEXT,\n  phone INTEGER,\nPRIMARY KEY ("name", "phone")\n);\nCREATE INDEX IF NOT EXISTS _mockname ON mytab (name, phone);\n'
 
 def test_process_index():
     mytab = MockTable('mytab', [], [])
