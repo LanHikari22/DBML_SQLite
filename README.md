@@ -25,6 +25,12 @@ dbml-sqlite @ git+https://github.com/LanHikari22/DBML_SQLite@v0.3.4
 
 This requires that `git` is installed.
 
+You can also install with `poetry`:
+
+```sh
+poetry add git+https://github.com/LanHikari22/DBML_SQLite@v0.3.4
+```
+
 Otherwise,
 
 ```
